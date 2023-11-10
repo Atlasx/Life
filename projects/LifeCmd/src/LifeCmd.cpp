@@ -23,11 +23,18 @@
 #include <iostream>
 #include "LifeCore.h"
 
+
+
 int main()
 {
 	std::cout << "Hello World!\n";
 
-	LifeCore::LifeTest myTest;
-	
-	std::cout << "TestVar: " << myTest.GetVal() << std::endl;
+	LifeCore::Game myGame;
+	myGame.Initialize();
+
+	for (int i = 0; i < 5; i++)
+	{
+		myGame.Step();
+		
+	}
 }

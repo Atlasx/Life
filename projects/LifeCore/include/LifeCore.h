@@ -1,23 +1,29 @@
 #pragma once
 
+#include <string>
+
+#include "Grid.h"
+
 namespace LifeCore
 {
 
-	struct LifeData
+	class Game
 	{
-		int test;
-	};
+	public:
+		void Initialize();
+		void Step();
+		void Reset();
 
-	class LifeTest
-	{
-	public: 
-		LifeTest();
-		~LifeTest();
-
-		int GetVal();
-
+		bool LoadGrid(std::string path);
 	private:
-		int m_test;
-		LifeData m_data;
+		// Keep two grid states, one to read from the previous frame and another to write to the next frame
+		Grid* m_gridA;
+		Grid* m_gridB;
+		Grid* m_currentGrid;
+
+		size_t m_width;
+		size_t m_height;
+		
 	};
+
 }

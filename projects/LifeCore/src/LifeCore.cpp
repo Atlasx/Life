@@ -1,20 +1,28 @@
 #include "LifeCore.h"
 
+
 namespace LifeCore
 {
 
-	LifeTest::LifeTest()
+	void Game::Initialize()
 	{
-		m_test = 10;
-		m_data = LifeData();
+		m_gridA = new Grid(m_width, m_height);
+		m_gridB = new Grid(m_width, m_height);
+		m_currentGrid = m_gridA;
 	}
 
-	LifeTest::~LifeTest()
+	void Game::Step()
 	{
+		printf("Stepping\n");
 	}
 
-	int LifeTest::GetVal()
+	void Game::Reset()
 	{
-		return m_test;
+
+	}
+
+	bool Game::LoadGrid(std::string path)
+	{
+		return false;
 	}
 }
