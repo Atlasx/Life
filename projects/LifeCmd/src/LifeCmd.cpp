@@ -21,8 +21,8 @@
 
 
 #include <iostream>
+#include <chrono>
 #include "LifeCore.h"
-
 
 
 int main()
@@ -31,10 +31,27 @@ int main()
 
 	LifeCore::Game myGame;
 	myGame.Initialize();
+	myGame.LogGrid();
+	myGame.Randomize();
+	myGame.LogGrid();
+	myGame.Randomize();
+	myGame.LogGrid();
 
-	for (int i = 0; i < 5; i++)
+	std::chrono::high_resolution_clock clock;
+	auto startTime = clock.now();
+
+	int iterations = 50000;
+	for (int i = 0; i < iterations; i++)
 	{
 		myGame.Step();
-		
+		if (i < 10) {
+			myGame.LogGrid();
+		}
 	}
+
+	myGame.LogGrid();
+
+	auto endTime = clock.now();
+
+	printf("%d iterations in %f s\n", iterations, std::chrono::duration<double>(endTime - startTime));
 }
