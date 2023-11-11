@@ -45,12 +45,17 @@ namespace LifeCore
 
 	void Grid::SetCell(const Position& position, bool value)
 	{
-		std::unique_lock<std::shared_mutex> lock(m_mutex);
-		assert(m_buffer != nullptr);
-		m_buffer[ToLinearIndex(position)].Set(value);
+		if (!IsBounded(position)) {
+			return;
+		}
+		{
+			std::unique_lock<std::shared_mutex> lock(m_mutex);
+			assert(m_buffer != nullptr);
+			m_buffer[ToLinearIndex(position)].Set(value);
+		}
 	}
 
-	void Grid::SetCell(size_t x, size_t y, bool value)
+	void Grid::SetCell(int x, int y, bool value)
 	{
 		SetCell(Position(x, y), value);
 	}
@@ -61,14 +66,19 @@ namespace LifeCore
 			return nullptr;
 		}
 
-		std::shared_lock<std::shared_mutex> lock(m_mutex);
-		assert(m_buffer != nullptr);
+		//std::shared_lock<std::shared_mutex> lock(m_mutex);
+		//assert(m_buffer != nullptr);
 		return &m_buffer[ToLinearIndex(position)];
 	}
 
-	Cell* Grid::GetAt(size_t x, size_t y)
+	Cell* Grid::GetAt(int x, int y)
 	{
-		return GetAt(Position(x, y));
+		//return GetAt(Position(x, y));
+		if (!IsBounded(x, y)) {
+			return nullptr;
+		}
+
+		return &m_buffer[ToLinearIndex(x, y)];
 	}
 
 	void Grid::Clear()
@@ -78,14 +88,15 @@ namespace LifeCore
 		m_buffer = std::make_unique<Cell[]>(cellCount);
 		assert(m_buffer != nullptr);
 	}
+	
+	size_t Grid::ToLinearIndex(int x, int y) const
+	{
+		return y * m_width + x;
+	}
 
 	size_t Grid::ToLinearIndex(const Position& position) const
 	{
-		if (!IsBounded(position)) {
-			return -1;
-		}
-
-		size_t index = position.m_y * m_width + position.m_x;
+		const size_t index = position.m_y * m_width + position.m_x;
 		assert(index >= 0 && index < MaxLinearIndex());
 		return index;
 	}
@@ -104,16 +115,30 @@ namespace LifeCore
 			);
 	}
 
-	bool Grid::IsCellAlive(size_t x, size_t y)
+	bool Grid::IsBounded(int x, int y) const
 	{
-		return IsCellAlive(Position(x, y));
+		return (x >= 0 &&
+			x < m_width &&
+			y >= 0 &&
+			y < m_height
+			);
+	}
+
+	bool Grid::IsCellAlive(int x, int y)
+	{
+
+		const Cell* cell = GetAt(x, y);
+		if (cell == nullptr) { return false; }
+
+		return cell->IsAlive();
 	}
 
 	bool Grid::IsCellAlive(const Position& position)
 	{
-		if (!IsBounded(position)) return false;
+		const Cell* cell = GetAt(position);
+		if (cell == nullptr) { return false; }
 
-		return GetAt(position)->IsAlive();
+		return cell->IsAlive();
 	}
 
 	size_t Grid::GetNeighborCountOfCell(const Position& position)
@@ -121,7 +146,8 @@ namespace LifeCore
 		std::shared_lock<std::shared_mutex> lock(m_mutex);
 		assert(m_buffer != nullptr);
 
-		static std::vector<Position> neighborDeltas = {
+		// removed to favor lightweight C array for hotpath
+		/*static std::vector<Position> neighborDeltas = {
 			Position(-1, -1),
 			Position(-1, 0),
 			Position(-1, 1),
@@ -130,13 +156,28 @@ namespace LifeCore
 			Position(1, -1),
 			Position(1, 0),
 			Position(1, 1)
+		};*/
+
+		static const int deltas[] = {
+			-1, -1,
+			-1, 0,
+			-1, 1,
+			0, -1,
+			0, 1,
+			1, -1,
+			1, 0,
+			1, 1
 		};
 
 		size_t count = 0;
 
-		for (auto delta : neighborDeltas) {
-			Position checkPos = delta + position;
-			if (IsCellAlive(checkPos)) {
+		//for (auto delta : neighborDeltas) {
+		for (int i = 0; i < 16; i += 2) {
+			/*const Position checkPos = Position(delta.m_x + position.m_x, delta.m_y + position.m_y);
+			if (IsCellAlive(delta.m_x + position.m_x, delta.m_y + position.m_y)) {
+				count++;
+			}*/
+			if (IsCellAlive(deltas[i] + position.m_x, deltas[i + 1] + position.m_y)) {
 				count++;
 			}
 		}
@@ -151,8 +192,8 @@ namespace LifeCore
 
 		std::string output;
 
-		for (size_t j = 0; j < h; j++) {
-			for (size_t i = 0; i < w; i++) {
+		for (int j = 0; j < h; j++) {
+			for (int i = 0; i < w; i++) {
 				// stripping const here is bad, todo fix. but don't want to remove const from param
 				Cell* curCell = const_cast<Grid&>(grid).GetAt(i, j);
 				if (curCell != nullptr) {

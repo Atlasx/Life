@@ -11,6 +11,7 @@ namespace LifeCore
 	{
 	public:
 		Game();
+		Game(size_t width, size_t height);
 		~Game();
 
 		void Initialize();

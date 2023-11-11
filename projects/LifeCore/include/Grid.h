@@ -18,11 +18,11 @@ namespace LifeCore
 
 	typedef struct Position
 	{
-		size_t m_x, m_y;
+		int m_x, m_y;
 
-		Position(size_t x, size_t y) : m_x(x), m_y(y) {};
+		Position(int x, int y) : m_x(x), m_y(y) {};
 
-		friend Position operator+(Position lhs, const Position& rhs) {
+		inline friend Position operator+(Position lhs, const Position& rhs) {
 			lhs.m_x += rhs.m_x;
 			lhs.m_y += rhs.m_y;
 			return lhs;
@@ -39,11 +39,11 @@ namespace LifeCore
 		~Grid();
 
 		// Functions intended for non-threaded use
-		void SetCell(size_t x, size_t y, bool value);
+		void SetCell(int x, int y, bool value);
 		void SetCell(const Position& position, bool value);
-		Cell* GetAt(size_t x, size_t y);
+		Cell* GetAt(int x, int y);
 		Cell* GetAt(const Position& position);
-		bool IsCellAlive(size_t x, size_t y);
+		bool IsCellAlive(int x, int y);
 		bool IsCellAlive(const Position& position);
 
 		size_t GetNeighborCountOfCell(const Position& position);
@@ -61,9 +61,11 @@ namespace LifeCore
 		// mutable to preserve const correctness of accessors without threading issues
 		mutable std::shared_mutex m_mutex;
 
+		inline size_t ToLinearIndex(int x, int y) const;
 		inline size_t ToLinearIndex(const Position& position) const;
 		inline size_t MaxLinearIndex() const;
 		inline bool IsBounded(const Position& position) const;
+		inline bool IsBounded(int x, int y) const;
 	};
 
 	std::string GridToString(const Grid& grid);

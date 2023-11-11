@@ -25,33 +25,62 @@
 #include "LifeCore.h"
 
 
+class ScopeTimer
+{
+public:
+	ScopeTimer() {
+		m_start = m_clock.now();
+	}
+
+	~ScopeTimer() {
+		m_end = m_clock.now();
+		auto dur = std::chrono::duration_cast<std::chrono::milliseconds>(m_end - m_start);
+
+		printf("Duration: %lld ms\n", dur.count());
+	}
+
+private:
+	std::chrono::high_resolution_clock m_clock;
+
+	std::chrono::steady_clock::time_point m_start;
+	std::chrono::steady_clock::time_point m_end;
+};
+
 int main()
 {
 	std::cout << "Hello World!\n";
 
-	LifeCore::Game myGame;
-	myGame.Initialize();
-	myGame.LogGrid();
-	myGame.Randomize();
-	myGame.LogGrid();
-	myGame.Randomize();
-	myGame.LogGrid();
-
-	std::chrono::high_resolution_clock clock;
-	auto startTime = clock.now();
-
-	int iterations = 50000;
-	for (int i = 0; i < iterations; i++)
 	{
-		myGame.Step();
-		if (i < 10) {
-			myGame.LogGrid();
+		// Some time estimates here:
+		// 
+		// 50x50 grid of cells: 2500 cells
+		// 
+		// each cell needs to read 9 neighboring cells + set result 
+		// 2500 * 10 = 25000 cell reads
+		// 
+		// 50,000 iterations of the game
+		// 25000 * 50000 = 1250000000 = 1.25 billion
+		// 
+		// CPU hertz on test machine: 3.7 Ghz
+		// single threaded timing: ~2500ms
+		// 
+		// 3.7 * 1.25 = 4.675 avg cycles per operation
+		//
+
+
+		ScopeTimer timer;
+		LifeCore::Game myGame(50, 50);
+		myGame.Initialize();
+
+		int iterations = 50000;
+		for (int i = 0; i < iterations; i++)
+		{
+			myGame.Step();
+			if (i % 100 == 0) {
+				myGame.Randomize();
+			}
 		}
+
+		myGame.LogGrid();
 	}
-
-	myGame.LogGrid();
-
-	auto endTime = clock.now();
-
-	printf("%d iterations in %f s\n", iterations, std::chrono::duration<double>(endTime - startTime));
 }

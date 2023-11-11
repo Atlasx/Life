@@ -9,11 +9,12 @@ namespace LifeCore
 
 	Game::Game() :
 		m_width(5),
-		m_height(5),
-		m_gridA(nullptr),
-		m_gridB(nullptr),
-		m_currentGrid(nullptr),
-		m_nextGrid(nullptr)
+		m_height(5)
+	{}
+
+	Game::Game(size_t width, size_t height) :
+		m_width(width),
+		m_height(height)
 	{}
 
 	Game::~Game() {}
@@ -28,12 +29,15 @@ namespace LifeCore
 
 	void Game::Step()
 	{
-		if (GetCellCount() > m_threadedThreshold) {
+
+		/*if (GetCellCount() > m_threadedThreshold) {
 			ApplyRulesetThreaded();
 		}
 		else {
 			ApplyRuleset();
-		}
+		}*/
+
+		ApplyRuleset();
 		
 		// swap current and next
 		std::swap(m_currentGrid, m_nextGrid);
@@ -55,9 +59,9 @@ namespace LifeCore
 		static std::mt19937 gen;
 		static std::uniform_int_distribution<int> distribution(0,1);
 
-		for (size_t j = 0; j < m_height; j++)
+		for (int j = 0; j < m_height; j++)
 		{
-			for (size_t i = 0; i < m_width; i++)
+			for (int i = 0; i < m_width; i++)
 			{
 				m_currentGrid->SetCell(i, j, distribution(gen));
 			}
@@ -77,9 +81,9 @@ namespace LifeCore
 
 	void Game::ApplyRuleset()
 	{
-		for (size_t j = 0; j < m_height; j++)
+		for (int j = 0; j < m_height; j++)
 		{
-			for (size_t i = 0; i < m_width; i++)
+			for (int i = 0; i < m_width; i++)
 			{
 				size_t neighborCount = m_currentGrid->GetNeighborCountOfCell(Position(i, j));
 
