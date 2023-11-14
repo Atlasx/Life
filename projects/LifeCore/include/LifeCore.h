@@ -1,6 +1,7 @@
 #pragma once
 
 #include <string>
+#include <optional>
 
 #include "Grid.h"
 
@@ -8,11 +9,39 @@ namespace LifeCore
 {
 	struct GameConfig
 	{
-		size_t width;
-		size_t height;
+		enum class StartingState {
+			Custom,
+			Random,
+			Glider,
+			Patterns
+		};
 
-		bool logging;
-		size_t stepCount;
+		size_t width = 3;
+		size_t height = 3;
+		bool logging = false;
+		size_t stepTarget = 10;
+		StartingState startingState = StartingState::Custom;
+
+		GameConfig() {};
+
+		GameConfig(size_t w, size_t h, bool log, size_t sTarget, StartingState sState) :
+			width(w), height(h), logging(log), stepTarget(sTarget), startingState(sState) {};
+
+
+		static std::string GetPresetName(const StartingState& state) {
+			switch (state)
+			{
+			case StartingState::Random:
+				return "Random";
+			case StartingState::Custom:
+				return "Custom";
+			case StartingState::Glider:
+				return "Glider";
+			case StartingState::Patterns:
+				return "Patterns";
+			}
+			return "";
+		}
 	};
 
 	class Game
@@ -23,6 +52,7 @@ namespace LifeCore
 		~Game();
 
 		void Initialize(const GameConfig& config);
+		void Run();
 		void Step();
 		void Reset();
 
@@ -45,10 +75,13 @@ namespace LifeCore
 		size_t m_threadedThreshold = 128;
 
 		size_t m_stepCount;
+		size_t m_stepTarget;
+
+		bool m_initialized = false;
 
 		inline size_t GetCellCount() const { return m_width * m_height; }
 
-		void ApplyRulesetThreaded();
+		//void ApplyRulesetThreaded(); TODO: threaded approach
 		void ApplyRuleset();
 	};
 

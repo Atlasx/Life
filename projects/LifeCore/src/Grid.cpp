@@ -28,7 +28,7 @@ namespace LifeCore
 
 		{
 			// Make sure our other grid isn't changing while we're copying it over
-			const std::shared_lock<std::shared_mutex> lock(const_cast<Grid&>(other).m_mutex);
+			//const std::shared_lock<std::shared_mutex> lock(const_cast<Grid&>(other).m_mutex);
 			memcpy(m_buffer.get(), other.m_buffer.get(), cellCount * sizeof(Cell));
 		}
 
@@ -55,7 +55,7 @@ namespace LifeCore
 			return;
 		}
 		{
-			std::unique_lock<std::shared_mutex> lock(m_mutex);
+			//std::unique_lock<std::shared_mutex> lock(m_mutex);
 			assert(m_buffer != nullptr);
 			Cell& cell = m_buffer[ToLinearIndex(x, y)];
 
@@ -80,7 +80,7 @@ namespace LifeCore
 
 	void Grid::Clear()
 	{
-		std::unique_lock<std::shared_mutex> lock(m_mutex);
+		//std::unique_lock<std::shared_mutex> lock(m_mutex);
 		const size_t cellCount = MaxLinearIndex();
 		m_buffer = std::make_unique<Cell[]>(cellCount);
 		assert(m_buffer != nullptr);
@@ -136,7 +136,7 @@ namespace LifeCore
 
 	size_t Grid::GetNeighborCountOfCell(const Position& position)
 	{
-		std::shared_lock<std::shared_mutex> lock(m_mutex);
+		//std::shared_lock<std::shared_mutex> lock(m_mutex);
 		assert(m_buffer != nullptr);
 
 		// removed to favor lightweight C array for hot-path

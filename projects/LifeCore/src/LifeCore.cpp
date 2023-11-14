@@ -23,12 +23,67 @@ namespace LifeCore
 	{
 		m_width = config.width;
 		m_height = config.height;
+		m_stepCount = 0;
+		m_stepTarget = config.stepTarget;
+		m_loggingEnabled = config.logging;
 
 		m_gridA = std::make_shared<Grid>(m_width, m_height);
 		m_gridB = std::make_shared<Grid>(m_width, m_height);
 		m_currentGrid = m_gridA;
 		m_nextGrid = m_gridB;
-		m_stepCount = 0;
+
+		m_initialized = true;
+
+		switch (config.startingState)
+		{
+		case GameConfig::StartingState::Random:
+		{
+			Randomize();
+			break;
+		}
+		case GameConfig::StartingState::Glider:
+		{
+			SetCell(2, 0);
+			SetCell(0, 1);
+			SetCell(2, 1);
+			SetCell(1, 2);
+			SetCell(2, 2);
+			break;
+		}
+		case (GameConfig::StartingState::Patterns):
+		{
+			SetCell(10, 10);
+			SetCell(12, 10);
+			SetCell(13, 10);
+			SetCell(10, 11);
+			SetCell(13, 11);
+			SetCell(14, 11);
+			SetCell(14, 12);
+			SetCell(10, 13);
+			SetCell(10, 14);
+			SetCell(14, 14);
+			break;
+		}
+		case (GameConfig::StartingState::Custom):
+			[[fallthrough]];
+		default:
+			break;
+		}
+
+		printf("Initialized State: \nWidth: %lld\nHeight: %lld\nLogging: %s\nIterations: %lld\nPreset: %s\n",
+			m_width, m_height, m_loggingEnabled ? "true" : "false", m_stepTarget, GameConfig::GetPresetName(config.startingState).c_str());
+	
+	}
+
+	void Game::Run()
+	{
+		assert(m_initialized);
+
+		// assumes m_stepCount is incremented elsewhere, not a good plan
+		while (m_stepCount <= m_stepTarget)
+		{
+			Step();
+		}
 	}
 
 	void Game::Step()
@@ -57,6 +112,8 @@ namespace LifeCore
 	{
 		static std::mt19937 gen;
 		static std::uniform_int_distribution<int> distribution(0,1);
+		
+		assert(m_initialized);
 
 		for (int j = 0; j < m_height; j++)
 		{
@@ -82,9 +139,11 @@ namespace LifeCore
 
 	void Game::LogGrid()
 	{
+		assert(m_initialized);
+
 		printf("Step Count: %lld\n", m_stepCount);
 		std::string gridString = GridToString(*m_currentGrid);
-		std::cout << gridString << std::endl;
+		printf(gridString.c_str());
 	}
 
 	void Game::ApplyRuleset()
@@ -116,10 +175,5 @@ namespace LifeCore
 		});
 
 		m_currentGrid->ClearDirtyBounds();
-	}
-
-	void Game::ApplyRulesetThreaded()
-	{
-
 	}
 }

@@ -50,68 +50,54 @@ int main()
 {
 	std::cout << "Hello World!\n";
 
-	//YAML::Node node = YAML::LoadFile("config.yaml");
-	//LifeCore::GameConfig config;
-	//config.width = node["width"].as<size_t>();
-	//config.height = node["height"].as<size_t>();
+	// Some time estimates here:
+	// 
+	// 50x50 grid of cells: 2500 cells
+	// 
+	// each cell needs to read 9 neighboring cells + set result 
+	// 2500 * 10 = 25000 cell reads
+	// 
+	// 50,000 iterations of the game
+	// 25000 * 50000 = 1250000000 = 1.25 billion
+	// 
+	// CPU hertz on test machine: 3.7 Ghz
+	// single threaded timing: ~2500ms
+	// 
+	// 3.7cycle/s * 2.5s / 1.25operations = 7.4 avg cycles per operation
+	//
+	// With dirty rect speed up:
+	// ~1200ms
+	// 
+	// 3.7 * 1.2 / 1.25 = 3.5 cycles per operation
+	// 
+	// This improvement is highly data dependent and will not help if there are oscillators
+	// in opposing corners of the grid. My next improvement would be to generate multiple
+	// dirtyRects which reactively group dirtied cells into more performant rects.
+	// 
+	// Functionality-wise, this could also use a chunked grid system to allow for as-needed
+	// expansion of the game world. Additional rule-sets and types of cells would also be
+	// good areas of extension.
+	//
+	// Wasn't able to get yaml library linking properly for this build so I'm just compiling in
+	// some examples here to test with.
+	//
 
+	std::vector<LifeCore::GameConfig> runConfigs = {
+		// (width, height, logging, iterations, preset)
+		LifeCore::GameConfig(50, 50, true, 100, LifeCore::GameConfig::StartingState::Glider),
+		LifeCore::GameConfig(20, 20, false, 100, LifeCore::GameConfig::StartingState::Patterns),
+		LifeCore::GameConfig(100, 100, false, 10000, LifeCore::GameConfig::StartingState::Random),
+		LifeCore::GameConfig(10, 10, true, 10, LifeCore::GameConfig::StartingState::Random),
+		LifeCore::GameConfig(10, 10, false, 10, LifeCore::GameConfig::StartingState::Custom)
+	};
+
+	for (auto& config : runConfigs)
 	{
-		// Some time estimates here:
-		// 
-		// 50x50 grid of cells: 2500 cells
-		// 
-		// each cell needs to read 9 neighboring cells + set result 
-		// 2500 * 10 = 25000 cell reads
-		// 
-		// 50,000 iterations of the game
-		// 25000 * 50000 = 1250000000 = 1.25 billion
-		// 
-		// CPU hertz on test machine: 3.7 Ghz
-		// single threaded timing: ~2500ms
-		// 
-		// 3.7cycle/s * 2.5s * 1.25operations = 11.56 avg cycles per operation
-		//
-		// With dirty rect speed up:
-		// ~1200ms
-		// 
-		// 3.7 * 1.2 * 1.25 = 5.5 cycles per operation
-		// 
-		// This improvement is highly data dependent and will not help if there are oscillators
-		// in opposing corners of the grid. My next improvement would be to generate multiple
-		// dirtyRects which reactively group dirtied cells into more performant rects.
-		// 
-		// Functionality-wise, this could also use a chunked grid system to allow for as-needed
-		// expansion of the game world. Additional rule-sets and types of cells would also be
-		// good areas of extension.
-		//
-
-
+		printf("\n====================\n");
 		ScopeTimer timer;
 		LifeCore::Game myGame;
-		LifeCore::GameConfig config;
+
 		myGame.Initialize(config);
-
-		myGame.SetCell(10, 10);
-		myGame.SetCell(12, 10);
-		myGame.SetCell(13, 10);
-		myGame.SetCell(10, 11);
-		myGame.SetCell(13, 11);
-		myGame.SetCell(14, 11);
-		myGame.SetCell(14, 12);
-		myGame.SetCell(10, 13);
-		myGame.SetCell(10, 14);
-		myGame.SetCell(14, 14);
-
-		myGame.Randomize();
-
-		myGame.LogGrid();
-
-		int iterations = 50000;
-		for (int i = 0; i < iterations; i++)
-		{
-			myGame.Step();
-		}
-
-		myGame.LogGrid();
+		myGame.Run();
 	}
 }
