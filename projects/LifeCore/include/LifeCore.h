@@ -6,6 +6,14 @@
 
 namespace LifeCore
 {
+	struct GameConfig
+	{
+		size_t width;
+		size_t height;
+
+		bool logging;
+		size_t stepCount;
+	};
 
 	class Game
 	{
@@ -14,11 +22,12 @@ namespace LifeCore
 		Game(size_t width, size_t height);
 		~Game();
 
-		void Initialize();
+		void Initialize(const GameConfig& config);
 		void Step();
 		void Reset();
 
 		void Randomize();
+		void SetCell(int x, int y);
 		bool LoadGrid(std::string path);
 
 		void LogGrid();
@@ -34,6 +43,8 @@ namespace LifeCore
 
 		bool m_loggingEnabled = false;
 		size_t m_threadedThreshold = 128;
+
+		size_t m_stepCount;
 
 		inline size_t GetCellCount() const { return m_width * m_height; }
 

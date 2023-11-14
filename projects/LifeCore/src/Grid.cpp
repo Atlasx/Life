@@ -13,6 +13,8 @@ namespace LifeCore
 		const size_t cellCount = MaxLinearIndex();
 		m_buffer = std::make_unique<Cell[]>(cellCount);
 		assert(m_buffer != nullptr);
+
+		m_dirtyRect = BoundedRect(0, 0, width-1, height-1, 1);
 	}
 
 	Grid::Grid(const Grid& other)
@@ -20,22 +22,16 @@ namespace LifeCore
 		m_width = other.m_width;
 		m_height = other.m_height;
 
-		/*
-		* switched to unique ptr and was getting in the weeds with memcpy and malloc.
-		* will revisit this later
-		* 
-		
-
-		const size_t bufferSize = MaxLinearIndex() * sizeof(Cell);
-		//m_buffer = std::make_unique<Cell[]>(malloc(bufferSize));
-		//assert(m_buffer != nullptr);
+		const size_t cellCount = MaxLinearIndex();
+		m_buffer = std::make_unique<Cell[]>(cellCount);
+		assert(m_buffer != nullptr);
 
 		{
 			// Make sure our other grid isn't changing while we're copying it over
-			//const std::shared_lock<std::shared_mutex> lock(const_cast<Grid&>(other).m_mutex);
-			//memcpy(m_buffer.get(), other.m_buffer.get(), bufferSize);
+			const std::shared_lock<std::shared_mutex> lock(const_cast<Grid&>(other).m_mutex);
+			memcpy(m_buffer.get(), other.m_buffer.get(), cellCount * sizeof(Cell));
 		}
-		*/
+
 	}
 
 	Grid::~Grid()
@@ -43,37 +39,38 @@ namespace LifeCore
 		// Buffer is freed by out of scope unique ptr
 	}
 
-	void Grid::SetCell(const Position& position, bool value)
+	void Grid::SetCell(int x, int y)
 	{
-		if (!IsBounded(position)) {
+		SetCell(x, y, true, true);
+	}
+
+	void Grid::SetCell(const Position& position, bool value, bool markDirty)
+	{
+		SetCell(position.m_x, position.m_y, value, markDirty);
+	}
+
+	void Grid::SetCell(int x, int y, bool value, bool markDirty)
+	{
+		if (!IsBounded(x, y)) {
 			return;
 		}
 		{
 			std::unique_lock<std::shared_mutex> lock(m_mutex);
 			assert(m_buffer != nullptr);
-			m_buffer[ToLinearIndex(position)].Set(value);
-		}
-	}
+			Cell& cell = m_buffer[ToLinearIndex(x, y)];
 
-	void Grid::SetCell(int x, int y, bool value)
-	{
-		SetCell(Position(x, y), value);
+			cell.Set(value);
+			if (markDirty) m_dirtyRect.Encompass(x, y);
+		}
 	}
 
 	Cell* Grid::GetAt(const Position& position)
 	{
-		if (!IsBounded(position)) {
-			return nullptr;
-		}
-
-		//std::shared_lock<std::shared_mutex> lock(m_mutex);
-		//assert(m_buffer != nullptr);
-		return &m_buffer[ToLinearIndex(position)];
+		return GetAt(position.m_x, position.m_y);
 	}
 
 	Cell* Grid::GetAt(int x, int y)
 	{
-		//return GetAt(Position(x, y));
 		if (!IsBounded(x, y)) {
 			return nullptr;
 		}
@@ -88,17 +85,17 @@ namespace LifeCore
 		m_buffer = std::make_unique<Cell[]>(cellCount);
 		assert(m_buffer != nullptr);
 	}
-	
+
 	size_t Grid::ToLinearIndex(int x, int y) const
 	{
-		return y * m_width + x;
+		int index = y * m_width + x;
+		assert(index >= 0 && index < MaxLinearIndex());
+		return index;
 	}
 
 	size_t Grid::ToLinearIndex(const Position& position) const
 	{
-		const size_t index = position.m_y * m_width + position.m_x;
-		assert(index >= 0 && index < MaxLinearIndex());
-		return index;
+		return ToLinearIndex(position.m_x, position.m_y);
 	}
 
 	size_t Grid::MaxLinearIndex() const
@@ -108,11 +105,7 @@ namespace LifeCore
 
 	bool Grid::IsBounded(const Position& position) const
 	{
-		return (position.m_x >= 0		&&
-				position.m_x < m_width	&&
-				position.m_y >= 0		&&
-				position.m_y < m_height
-			);
+		return IsBounded(position.m_x, position.m_y);
 	}
 
 	bool Grid::IsBounded(int x, int y) const
@@ -146,7 +139,7 @@ namespace LifeCore
 		std::shared_lock<std::shared_mutex> lock(m_mutex);
 		assert(m_buffer != nullptr);
 
-		// removed to favor lightweight C array for hotpath
+		// removed to favor lightweight C array for hot-path
 		/*static std::vector<Position> neighborDeltas = {
 			Position(-1, -1),
 			Position(-1, 0),
@@ -169,14 +162,9 @@ namespace LifeCore
 			1, 1
 		};
 
-		size_t count = 0;
 
-		//for (auto delta : neighborDeltas) {
+		size_t count = 0;
 		for (int i = 0; i < 16; i += 2) {
-			/*const Position checkPos = Position(delta.m_x + position.m_x, delta.m_y + position.m_y);
-			if (IsCellAlive(delta.m_x + position.m_x, delta.m_y + position.m_y)) {
-				count++;
-			}*/
 			if (IsCellAlive(deltas[i] + position.m_x, deltas[i + 1] + position.m_y)) {
 				count++;
 			}
@@ -185,29 +173,73 @@ namespace LifeCore
 		return count;
 	}
 
-	std::string GridToString(const Grid& grid)
+	std::string GridToString(Grid& grid)
 	{
-		const size_t w = grid.GetWidth();
-		const size_t h = grid.GetHeight();
-
 		std::string output;
+		int prevX = grid.GetWidth();
 
-		for (int j = 0; j < h; j++) {
-			for (int i = 0; i < w; i++) {
-				// stripping const here is bad, todo fix. but don't want to remove const from param
-				Cell* curCell = const_cast<Grid&>(grid).GetAt(i, j);
-				if (curCell != nullptr) {
-					if (curCell->IsAlive()) {
-						output.append("X");
-					}
-					else {
-						output.append("O");
-					}
+		auto printer = [&](int i, int j) {
+			if (i <= prevX) {
+				output.append("\n");
+				prevX = i;
+			}
+
+			Cell* curCell = grid.GetAt(i, j);
+			if (curCell != nullptr) {
+				if (curCell->IsAlive()) {
+					output.append("X");
+				}
+				else {
+					output.append("O");
 				}
 			}
-			output.append("\n");
-		}
+			if (grid.IsDirty(i, j)) {
+				output.append(".");
+			}
+			else {
+				output.append(" ");
+			}
+		};
+
+		grid.IterateGrid(printer);
+		output.append("\n");
 
 		return output;
+	}
+
+	void Grid::AddDirtyBounds(int x, int y)
+	{
+		assert(IsBounded(x, y));
+		m_dirtyRect.Encompass(x, y);
+	}
+
+	void Grid::ClearDirtyBounds()
+	{
+		m_dirtyRect.Reset();
+	}
+
+	bool Grid::IsDirty(int x, int y)
+	{
+		return m_dirtyRect.Contains(x, y);
+	}
+
+	void Grid::IterateDirtyRect(std::function<void(int, int)> lambda)
+	{
+		// Small error prone problem here:
+		// dirtyRect is inclusive max while m_width and m_height are exclusive max
+		for (int j = m_dirtyRect.m_yMin; j <= m_dirtyRect.m_yMax; j++) {
+			for (int i = m_dirtyRect.m_xMin; i <= m_dirtyRect.m_xMax; i++) {
+				lambda(i, j);
+			}
+		}
+	}
+
+	void Grid::IterateGrid(std::function<void(int, int)> lambda)
+	{
+		for (int j = 0; j < m_height; j++) {
+			for (int i = 0; i < m_width; i++) {
+				lambda(i, j);
+			}
+		}
 	}
 }

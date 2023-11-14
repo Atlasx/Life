@@ -19,28 +19,26 @@ namespace LifeCore
 
 	Game::~Game() {}
 
-	void Game::Initialize()
+	void Game::Initialize(const GameConfig& config)
 	{
+		m_width = config.width;
+		m_height = config.height;
+
 		m_gridA = std::make_shared<Grid>(m_width, m_height);
 		m_gridB = std::make_shared<Grid>(m_width, m_height);
 		m_currentGrid = m_gridA;
 		m_nextGrid = m_gridB;
+		m_stepCount = 0;
 	}
 
 	void Game::Step()
 	{
-
-		/*if (GetCellCount() > m_threadedThreshold) {
-			ApplyRulesetThreaded();
-		}
-		else {
-			ApplyRuleset();
-		}*/
-
 		ApplyRuleset();
 		
 		// swap current and next
 		std::swap(m_currentGrid, m_nextGrid);
+
+		m_stepCount++;
 
 		if (m_loggingEnabled) {
 			LogGrid();
@@ -52,6 +50,7 @@ namespace LifeCore
 		m_gridA->Clear();
 		m_gridB->Clear();
 		m_currentGrid = m_gridA;
+		m_stepCount = 0;
 	}
 
 	void Game::Randomize()
@@ -63,9 +62,17 @@ namespace LifeCore
 		{
 			for (int i = 0; i < m_width; i++)
 			{
-				m_currentGrid->SetCell(i, j, distribution(gen));
+				const bool value = distribution(gen);
+				m_currentGrid->SetCell(i, j, value, true);
+				m_nextGrid->SetCell(i, j, value, true);
 			}
 		}
+	}
+
+	void Game::SetCell(int x, int y)
+	{
+		m_currentGrid->SetCell(x, y);
+		m_nextGrid->SetCell(x, y);
 	}
 
 	bool Game::LoadGrid(std::string path)
@@ -75,37 +82,40 @@ namespace LifeCore
 
 	void Game::LogGrid()
 	{
+		printf("Step Count: %lld\n", m_stepCount);
 		std::string gridString = GridToString(*m_currentGrid);
 		std::cout << gridString << std::endl;
 	}
 
 	void Game::ApplyRuleset()
 	{
-		for (int j = 0; j < m_height; j++)
-		{
-			for (int i = 0; i < m_width; i++)
-			{
-				size_t neighborCount = m_currentGrid->GetNeighborCountOfCell(Position(i, j));
+		m_currentGrid->IterateDirtyRect([&](int x, int y){
+			size_t neighborCount = m_currentGrid->GetNeighborCountOfCell(Position(x, y));
 
-				Cell* current = m_currentGrid->GetAt(Position(i, j));
-				Cell* next = m_nextGrid->GetAt(Position(i, j));
-				assert(current != nullptr);
-				assert(next != nullptr);
+			Cell* current = m_currentGrid->GetAt(Position(x, y));
+			Cell* next = m_nextGrid->GetAt(Position(x, y));
+			assert(current != nullptr);
+			assert(next != nullptr);
 
-				next->Set(current->IsAlive());
+			const bool currentIsAlive = current->IsAlive();
+			bool nextIsAlive = currentIsAlive;
 
-				if (current->IsAlive()) {
-					if (neighborCount < 2 || neighborCount > 3) {
-						next->Set(false);
-					}
-				}
-				else {
-					if (neighborCount == 3) {
-						next->Set(true);
-					}
+			if (currentIsAlive) {
+				if (neighborCount < 2 || neighborCount > 3) {
+					nextIsAlive = false;
 				}
 			}
-		}
+			else {
+				if (neighborCount == 3) {
+					nextIsAlive = true;
+				}
+			}
+
+			const bool markDirty = (currentIsAlive != nextIsAlive);
+			m_nextGrid->SetCell(x, y, nextIsAlive, markDirty);
+		});
+
+		m_currentGrid->ClearDirtyBounds();
 	}
 
 	void Game::ApplyRulesetThreaded()

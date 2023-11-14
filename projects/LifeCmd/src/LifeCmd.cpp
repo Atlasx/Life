@@ -50,6 +50,11 @@ int main()
 {
 	std::cout << "Hello World!\n";
 
+	//YAML::Node node = YAML::LoadFile("config.yaml");
+	//LifeCore::GameConfig config;
+	//config.width = node["width"].as<size_t>();
+	//config.height = node["height"].as<size_t>();
+
 	{
 		// Some time estimates here:
 		// 
@@ -64,21 +69,47 @@ int main()
 		// CPU hertz on test machine: 3.7 Ghz
 		// single threaded timing: ~2500ms
 		// 
-		// 3.7 * 1.25 = 4.675 avg cycles per operation
+		// 3.7cycle/s * 2.5s * 1.25operations = 11.56 avg cycles per operation
+		//
+		// With dirty rect speed up:
+		// ~1200ms
+		// 
+		// 3.7 * 1.2 * 1.25 = 5.5 cycles per operation
+		// 
+		// This improvement is highly data dependent and will not help if there are oscillators
+		// in opposing corners of the grid. My next improvement would be to generate multiple
+		// dirtyRects which reactively group dirtied cells into more performant rects.
+		// 
+		// Functionality-wise, this could also use a chunked grid system to allow for as-needed
+		// expansion of the game world. Additional rule-sets and types of cells would also be
+		// good areas of extension.
 		//
 
 
 		ScopeTimer timer;
-		LifeCore::Game myGame(50, 50);
-		myGame.Initialize();
+		LifeCore::Game myGame;
+		LifeCore::GameConfig config;
+		myGame.Initialize(config);
+
+		myGame.SetCell(10, 10);
+		myGame.SetCell(12, 10);
+		myGame.SetCell(13, 10);
+		myGame.SetCell(10, 11);
+		myGame.SetCell(13, 11);
+		myGame.SetCell(14, 11);
+		myGame.SetCell(14, 12);
+		myGame.SetCell(10, 13);
+		myGame.SetCell(10, 14);
+		myGame.SetCell(14, 14);
+
+		myGame.Randomize();
+
+		myGame.LogGrid();
 
 		int iterations = 50000;
 		for (int i = 0; i < iterations; i++)
 		{
 			myGame.Step();
-			if (i % 100 == 0) {
-				myGame.Randomize();
-			}
 		}
 
 		myGame.LogGrid();
